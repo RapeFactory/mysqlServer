@@ -1,0 +1,16 @@
+{
+  "name": "mysqlserver",
+  "version": "1.0.0",
+  "description": "server on mySQL database",
+  "main": "index.js",
+  "scripts": {
+    "test": "nodemon index.js"
+  },
+  "author": "Alexander for Example",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3",
+    "mysql": "^2.15.0"
+  }
+}
