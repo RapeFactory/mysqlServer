@@ -3,74 +3,97 @@ const bodyParser = require('body-parser');
 const mysql = require('mysql');
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({
-  extended: true
-}));
+app.use(
+  bodyParser.urlencoded({
+    extended: true
+  })
+);
 
 // connection configurations
-function mConnection () {
-  const mc = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '1',
-    database: 'test',
-    connectTimeout: 0
+const dbOpt = {
+  host: 'localhost',
+  user: 'root',
+  password: '1',
+  database: 'test',
+  connectTimeout: 0
+};
+
+function mConnection() {
+  mc = mysql.createConnection(dbOpt);
+  
+  mc.connect(err => {
+    // The server is either down
+    if (err) {
+      // or restarting (takes a while sometimes).
+      console.log('error when connecting to db:', err);
+      setTimeout(mConnection, 2000);
+      /* We introduce a delay before attempting to reconnect,
+      to avoid a hot loop, and to allow our node script to
+      process asynchronous requests in the meantime.
+      If you're also serving http, display a 503 error. */
+    }
   });
-  mc.connect();
-  return mc;
+  
+  mc.on('error', err => {
+    console.log('db error', err);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+      /* Connection to the MySQL server is usually
+      lost due to either server restart, or a
+      connnection idle timeout (the wait_timeout
+        server variable configures this) */
+      mConnection();
+    } else {
+      throw err;
+    }
+  });
 }
 
+// create a connection
+let mc;
 // connect to database
-const mc = mConnection();
-
-// reconnect on error
-mc.on('error', err => {
-  console.log(err);
-  mc.connect();
-})
+mConnection();
 
 app.use(function(req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS,POST,PUT');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   next();
 });
 
 // default route
-app.get('/', function (req, res) {
+app.get('/', function(req, res) {
   return res.send({
     error: true,
     message: 'create a request'
-  })
+  });
 });
 
 // Search for Tasks with ‘bug’ in their name
-app.get('/tasks', function (req, res) {
-
+app.get('/tasks', function(req, res) {
   let keyword = req.query.search;
 
-  keyword ?
-    mc.query("SELECT * FROM tasks WHERE name LIKE ? ", ['%' + keyword + '%'], function (error, results, fields) {
-      if (error) throw error;
-      return res.send({
-        error: false,
-        data: results,
-        message: 'Tasks search list.'
+  keyword
+    ? mc.query('SELECT * FROM tasks WHERE name LIKE ? ', ['%' + keyword + '%'], function(error, results, fields) {
+        if (error) throw error;
+        return res.send({
+          error: false,
+          data: results,
+          message: 'Tasks search list.'
+        });
+      })
+    : mc.query('SELECT * FROM tasks', function(error, results, fields) {
+        if (error) return;
+        return res.send({
+          error: false,
+          data: results,
+          message: 'tasks list.'
+        });
       });
-    }) :
-    mc.query('SELECT * FROM tasks', function (error, results, fields) {
-      if (error) throw error;
-      return res.send({
-        error: false,
-        data: results,
-        message: 'tasks list.'
-      });
-    });
 });
 
-app.get('/groups', function (req, res) {
-  mc.query('SELECT * FROM groups', function (error, results, fields) {
-    if (error) throw error;
+app.get('/groups', function(req, res) {
+  mc.query('SELECT * FROM groups', function(error, results, fields) {
+    if (error) return;
     return res.send({
       error: false,
       data: results,
@@ -79,12 +102,11 @@ app.get('/groups', function (req, res) {
   });
 });
 
-// Retrieve task with id 
-app.get('/task', function (req, res) {
-
+// Retrieve task with id
+app.get('/task', function(req, res) {
   let task_id = req.query.id;
 
-  mc.query('SELECT * FROM tasks where id=?', task_id, function (error, results, fields) {
+  mc.query('SELECT * FROM tasks where id=?', task_id, function(error, results, fields) {
     if (error) throw error;
     return res.send({
       error: false,
@@ -92,12 +114,10 @@ app.get('/task', function (req, res) {
       message: 'Task id ' + task_id
     });
   });
-
 });
 
-// Add a new task  
-app.post('/task', function (req, res) {
-
+// Add a new task
+app.post('/task', function(req, res) {
   let task = req.body.task;
 
   if (!task) {
@@ -107,10 +127,14 @@ app.post('/task', function (req, res) {
     });
   }
 
-  const keys = Object.keys(task).reduce((str, item) => str + `"${item}",`, "").slice(0, -1);
-  const values = Object.values(task).reduce((str, item) => str + `"${item}",`, "").slice(0, -1);
+  const keys = Object.keys(task)
+    .reduce((str, item) => str + `"${item}",`, '')
+    .slice(0, -1);
+  const values = Object.values(task)
+    .reduce((str, item) => str + `"${item}",`, '')
+    .slice(0, -1);
 
-  mc.query("INSERT INTO tasks SET ? ", task, function (error, results, fields) {
+  mc.query('INSERT INTO tasks SET ? ', task, function(error, results, fields) {
     if (error) throw error;
     return res.send({
       error: false,
@@ -121,8 +145,7 @@ app.post('/task', function (req, res) {
 });
 
 //  Update task with id
-app.put('/task', function (req, res) {
-
+app.put('/task', function(req, res) {
   let task_id = req.body.task_id;
   let task = req.body.task;
 
@@ -133,7 +156,7 @@ app.put('/task', function (req, res) {
     });
   }
 
-  mc.query("UPDATE tasks SET ? WHERE id = ?", [task, task_id], function (error, results, fields) {
+  mc.query('UPDATE tasks SET ? WHERE id = ?', [task, task_id], function(error, results, fields) {
     if (error) throw error;
     return res.send({
       error: false,
@@ -144,11 +167,10 @@ app.put('/task', function (req, res) {
 });
 
 //  Delete task
-app.delete('/task', function (req, res) {
-
+app.delete('/task', function(req, res) {
   let task_id = req.query.id;
 
-  mc.query('DELETE FROM tasks WHERE id = ?', [task_id], function (error, results, fields) {
+  mc.query('DELETE FROM tasks WHERE id = ?', [task_id], function(error, results, fields) {
     if (error) throw error;
     return res.send({
       error: false,
@@ -156,12 +178,9 @@ app.delete('/task', function (req, res) {
       message: 'Task has been deleted successfully.'
     });
   });
-
 });
-
 
 // port must be set to 8080 because incoming http requests are routed from port 80 to port 8080
-app.listen(8080, function () {
+app.listen(8080, function() {
   console.log('Node app is running on port 8080');
 });
-
