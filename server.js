@@ -20,7 +20,7 @@ const dbOpt = {
 
 function mConnection() {
   mc = mysql.createConnection(dbOpt);
-  
+
   mc.connect(err => {
     // The server is either down
     if (err) {
@@ -33,7 +33,7 @@ function mConnection() {
       If you're also serving http, display a 503 error. */
     }
   });
-  
+
   mc.on('error', err => {
     console.log('db error', err);
     if (err.code === 'PROTOCOL_CONNECTION_LOST') {
@@ -172,6 +172,59 @@ app.delete('/task', function(req, res) {
   });
 });
 
+// Add a new item
+app.post('/item', function(req, res) {
+  let item = req.body.item;
+
+  if (!item) {
+    return res.status(400).send({
+      error: true,
+      message: 'Please provide item'
+    });
+  }
+
+  const keys = Object.keys(item)
+    .reduce((str, it) => str + `"${it}",`, '')
+    .slice(0, -1);
+  const values = Object.values(item)
+    .reduce((str, it) => str + `"${it}",`, '')
+    .slice(0, -1);
+
+  mc.query('INSERT INTO items SET ? ', item, function(error, results, fields) {
+    if (error) throw error;
+    return res.send({
+      error: false,
+      data: results,
+      message: 'New item has been created successfully.'
+    });
+  });
+});
+
+// Retrieve item with task_id
+app.get('/item', function(req, res) {
+  let task_id = req.query.id;
+
+  mc.query('SELECT * FROM items where task_id=?', task_id, function(error, results, fields) {
+    if (error) throw error;
+    return res.send({
+      error: false,
+      data: results,
+      message: 'Task id ' + task_id
+    });
+  });
+});
+
+// Retrieve items
+app.get('/items', function(req, res) {
+  mc.query('SELECT * FROM items', function(error, results, fields) {
+    if (error) throw error;
+    return res.send({
+      error: false,
+      data: results,
+      message: 'Items List'
+    });
+  });
+});
 // port must be set to 8080 because incoming http requests are routed from port 80 to port 8080
 /* app.listen(8080, function() {
   console.log('Node app is running on port 8080');
