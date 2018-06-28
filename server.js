@@ -216,7 +216,7 @@ app.get('/item', function(req, res) {
 
 // Retrieve items
 app.get('/items', function(req, res) {
-  mc.query('SELECT * FROM items', function(error, results, fields) {
+  mc.query('SELECT * FROM items ORDER BY name ASC', function(error, results, fields) {
     if (error) throw error;
     return res.send({
       error: false,
