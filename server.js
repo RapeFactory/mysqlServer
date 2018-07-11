@@ -10,7 +10,13 @@ app.use(
 );
 
 // connection configurations
-const dbOpt = {
+const dbOpt = process.env.NODE_ENV === 'production' ? {
+  host: 'us-cdbr-iron-east-04.cleardb.net',
+  user: 'b915a2c050ac17',
+  password: 'f94a693c',
+  database: 'heroku_f3c700e5fd8a477',
+  connectTimeout: 0
+} : {
   host: 'localhost',
   user: 'root',
   password: '1',
